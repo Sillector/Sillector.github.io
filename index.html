@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Красивая штука</title>
+	<script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+	<style type="text/css">
+		html{
+			background: #28dcc3;
+		}
+		#canvas{
+		    width: 600px;
+		    height: 500px;
+		    background: #000;
+			border: 1px solid blue;
+		    margin: auto;
+		    margin-top: 71px;
+		    /*width: 500px;*/
+		    /*border-radius: 50%;*/
+		    /*overflow: hidden;*/
+
+		}
+		#canvas .block:after {
+			content: '';
+			width: 100%;
+			height: 100%;
+			display: table-cell;
+	    	position: relative;
+		}
+		#canvas .block.t:after {
+			border-top: 1px solid blue;
+		}
+		#canvas .block.l:after {
+			border-left: 1px solid blue;
+		}
+		#canvas .block.r:after {
+			border-right: 1px solid blue;
+		}
+		#canvas .block.b:after {
+			border-bottom: 1px solid blue;
+		}
+		#canvas .block:before {
+			content: '';
+			width: 0%;
+			height: 0%;
+			top: 0;
+			left: 0;
+			display: table-cell;
+			position: absolute;
+			background: #dc9428;
+		}
+	</style>
+	<style type="text/css" id="animations">
+		#canvas .block.fiel_t:before {
+			top: 0;
+			left: 0;
+			right: auto;
+			bottom: auto;
+			width: 100%;
+			height: 100%;
+			transition: height 0.3s linear;
+		}
+		#canvas .block.fiel_b:before {
+			top: auto;
+			left: 0;
+			right: auto;
+			bottom: 0;
+			width: 100%;
+			height: 100%;
+			transition: height 0.3s linear;
+		}
+		#canvas .block.fiel_l:before {
+			left: 0;
+			top: 0;
+			right: auto;
+			bottom: auto;
+			width: 100%;
+			height: 100%;
+			transition: width 0.3s linear;
+		}
+		#canvas .block.fiel_r:before {
+			left: auto;
+			top: 0;
+			right: 0;
+			bottom: auto;
+			width: 100%;
+			height: 100%;
+			transition: width 0.3s linear;
+		}
+	</style>
+	<style type="text/css" id="scales">
+		#canvas .block {
+			float: left;
+			width: 20px;
+			height: 20px;
+			background: #fff;
+			position: relative;
+			display: table;
+		}
+	</style>
+</head>
+<body>
+
+<div id="canvas"></div>
+
+<script type="text/javascript">
+
+var blockLabyrinth = {
+
+	// Длительность анимации
+	animation: 300,
+
+	// Размер сетки
+	gridScale: 20,
+
+	// Данные необходимые для нового расчета
+	columns: 0,
+	rows: 0,
+	blocks: [],
+	tiker: null,
+	fiel_array: [],
+	availableWays: [],
+
+	// Основная ф-ия генерации
+	generate: function () {
+
+		blockLabyrinth.initCanvas();
+
+		for (let i = 0; i < blockLabyrinth.rows; i++) {
+			for (let j = 0; j < blockLabyrinth.columns; j++) {
+				blockLabyrinth.getBlock(i,j).i = i;
+				blockLabyrinth.getBlock(i,j).j = j;
+			}
+		}
+
+		blockLabyrinth.createBorder();
+
+		blockLabyrinth.initLabyrinth();
+
+	},
+
+	// Объявление конваса и отчистка переменных
+	initCanvas: function () {
+
+		let animation = (blockLabyrinth.animation/1000).toFixed(1);
+		$('#animations').html(
+			$('#animations').html()
+			.replace('0.3s', animation + 's')
+			.replace('0.3s', animation + 's')
+			.replace('0.3s', animation + 's')
+			.replace('0.3s', animation + 's')
+			);
+
+		$('#scales').html(
+			$('#scales').html()
+			.replace('20', blockLabyrinth.gridScale)
+			.replace('20', blockLabyrinth.gridScale)
+			);
+
+
+		blockLabyrinth.rows = parseInt($('#canvas').height()/blockLabyrinth.gridScale);
+		blockLabyrinth.columns = parseInt($('#canvas').width()/blockLabyrinth.gridScale);
+		blockLabyrinth.fiel_array = [];
+		blockLabyrinth.blocks = [];
+		blockLabyrinth.availableWays = [];
+		if (blockLabyrinth.tiker !== null) {
+			clearTimeout(blockLabyrinth.tiker);
+		}
+
+		$('#canvas').html('');
+		$('#canvas').width(blockLabyrinth.columns * blockLabyrinth.gridScale);
+		$('#canvas').height(blockLabyrinth.rows * blockLabyrinth.gridScale);
+
+
+		for (let i = 0; i < blockLabyrinth.rows * blockLabyrinth.columns; i++) {
+			$('#canvas').append('<div class="block" onclick="blockLabyrinth.blocks[' + i + '].start()"></div>')
+			blockLabyrinth.blocks.push(new blockLabyrinth.GridBlock(i));
+		}
+	},
+
+
+
+	// Элемент сетки
+	GridBlock: function(index) {
+		let gridBlock = this;
+
+		gridBlock.start = function () {
+			if (gridBlock.fiel === '') {
+		  		blockLabyrinth.fiel_array.push(gridBlock);
+		  		gridBlock.fiel = ' fiel_t'
+		  		gridBlock.clases();
+		  		if (blockLabyrinth.fiel_array.length === 1) {
+			  		blockLabyrinth.ticker = setTimeout(blockLabyrinth.ticFunction, blockLabyrinth.animation);
+		  		}
+			}
+	  	};
+
+		gridBlock.clases = function() {
+			let clases = 'block ';
+			if (gridBlock.borders.top) {
+				clases += ' t';
+			}
+			if (gridBlock.borders.left) {
+				clases += ' l';
+			}
+			if (gridBlock.borders.right) {
+				clases += ' r';
+			}
+			if (gridBlock.borders.bottom) {
+				clases += ' b';
+			}
+			gridBlock.el.attr('class', clases + ' ' + gridBlock.fiel);
+		};
+		gridBlock.fiel = '';
+		gridBlock.borders = {
+			top : false,
+			left : false,
+			right : false,
+			bottom : false,
+		},
+		gridBlock.el = $($('#canvas .block')[index]);
+
+		return gridBlock;
+	},
+
+
+	// Получить элемент матрицы
+	getBlock: function(i, j) {
+		return this.blocks[i*(this.columns) + j]
+	},
+
+	// Отрисовка общей границы 
+	createBorder: function() {
+		for (let i = 0; i < blockLabyrinth.rows; i++) {
+			blockLabyrinth.getBlock(i, 0).borders.left = true;
+			blockLabyrinth.getBlock(i, 0).clases();
+			blockLabyrinth.getBlock(i, blockLabyrinth.columns - 1).borders.right = true;
+			blockLabyrinth.getBlock(i, blockLabyrinth.columns - 1).clases();
+		}
+		for (let i = 0; i < blockLabyrinth.columns; i++) {
+			blockLabyrinth.getBlock(0, i).borders.top = true;
+			blockLabyrinth.getBlock(0, i).clases();
+			blockLabyrinth.getBlock(blockLabyrinth.rows - 1, i).borders.bottom = true;
+			blockLabyrinth.getBlock(blockLabyrinth.rows - 1, i).clases();
+		}
+	},
+
+	// Получить все возможные направлеения которые можно перекрыть
+	getDerections: function(el) {
+		let derections = [];
+		if(!el.borders.left){
+			derections.push('left');
+		}
+		if(!el.borders.right){
+			derections.push('right');
+		}
+		if(!el.borders.bottom){
+			derections.push('bottom');
+		}
+		if(!el.borders.top){
+			derections.push('top');
+		}
+
+		return shuffle(derections);
+	},
+
+	// Попробовать перекрыть направление
+	tryCloseDerection: function (i,j, derection) {
+
+		let anti_derections = {
+			left: 'right',
+			top: 'bottom',
+			right: 'left',
+			bottom: 'top'
+		}
+		let current_block = blockLabyrinth.getBlock(i, j);
+
+		let chackable_block;
+		switch (derection) {
+			case 'left': 
+				chackable_block =  blockLabyrinth.getBlock(i, j-1);
+				break;
+			
+			case 'top': 
+				chackable_block =  blockLabyrinth.getBlock(i-1, j);
+				break;
+			
+			case 'right': 
+				chackable_block =  blockLabyrinth.getBlock(i, j+1);
+				break;
+			
+			case 'bottom': 
+				chackable_block =  blockLabyrinth.getBlock(i+1, j);
+				break;
+		}
+
+		blockLabyrinth.availableWays = [];
+
+
+		current_block.borders[derection] = true;
+		chackable_block.borders[anti_derections[derection]] = true;
+		blockLabyrinth.checkAvailableWays(i,j);
+
+		if (Object.values(blockLabyrinth.availableWays).length !== blockLabyrinth.blocks.length) {
+			current_block.borders[derection] = false;
+			chackable_block.borders[anti_derections[derection]] = false;
+		}
+
+		current_block.clases();
+		chackable_block.clases();
+
+		return true;
+	},
+
+	// Проверка есть ли возможность добраться из заданной точки до любой другой
+	checkAvailableWays: function (i,j) {
+
+		if(blockLabyrinth.availableWays[(i*blockLabyrinth.columns + j) + '_'] !== undefined) {
+			return;
+		}
+
+		blockLabyrinth.availableWays[(i*blockLabyrinth.columns + j) + '_'] = true;
+
+		let el = blockLabyrinth.getBlock(i, j);
+
+		if (!el.borders.top) {
+			blockLabyrinth.checkAvailableWays(i - 1, j)
+		}
+		if (!el.borders.left) {
+			blockLabyrinth.checkAvailableWays(i , j - 1)
+		}
+		if (!el.borders.bottom) {
+			blockLabyrinth.checkAvailableWays(i + 1, j)
+		}
+		if (!el.borders.right) {
+			blockLabyrinth.checkAvailableWays(i , j + 1)
+		}
+
+	},
+
+	// Получаем рандомный массив номеров элементов
+	getRandomBlockIndexArray: function () {
+
+		let array = [];
+
+		for (let i = 0; i < blockLabyrinth.rows * blockLabyrinth.columns; i++) {
+			array[i] = i;
+		}
+
+		return shuffle(array);
+	},
+
+	// Запускаем лабиринт
+	initLabyrinth: function () {
+
+		let randomBlocksArray = blockLabyrinth.getRandomBlockIndexArray();
+
+		for (let i = 0; i < blockLabyrinth.blocks.length; i++) {
+
+			let block = blockLabyrinth.blocks[randomBlocksArray[i]];
+
+			let derections = blockLabyrinth.getDerections(block);
+			let max_derections_count = derections.length-1;
+
+			let count = getRandomArbitary(0, max_derections_count);
+			let derections_count = 0;
+
+			for (let derection = 0; derection < max_derections_count; derection++) {
+				if(derections_count < count) {
+					if(blockLabyrinth.tryCloseDerection(block.i,block.j, derections[derection])){
+						derections_count++;
+					}
+				}
+			}
+		}
+	},
+
+	// Ф-ция продолжения течения
+	ticFunction: function () {
+		let new_array = [];
+  		for (var i = 0; i < blockLabyrinth.fiel_array.length; i++) {
+
+  			let el = blockLabyrinth.fiel_array[i];
+  			let _i = el.i;
+  			let _j = el.j;
+			if (!el.borders.top && blockLabyrinth.getBlock(_i - 1, _j).fiel === '') {
+				blockLabyrinth.getBlock(_i - 1, _j).fiel = 'fiel_b'
+				new_array.push(blockLabyrinth.getBlock(_i - 1, _j))
+				blockLabyrinth.getBlock(_i - 1, _j).clases();
+			}
+			if (!el.borders.left && blockLabyrinth.getBlock(_i , _j - 1).fiel === '') {
+				blockLabyrinth.getBlock(_i , _j - 1).fiel = 'fiel_r'
+				new_array.push(blockLabyrinth.getBlock(_i , _j - 1));
+				blockLabyrinth.getBlock(_i , _j - 1).clases();
+			}
+			if (!el.borders.bottom && blockLabyrinth.getBlock(_i + 1, _j).fiel === '') {
+				blockLabyrinth.getBlock(_i + 1, _j).fiel = 'fiel_t'
+				new_array.push(blockLabyrinth.getBlock(_i + 1, _j))
+				blockLabyrinth.getBlock(_i + 1, _j).clases();
+			}
+			if (!el.borders.right && blockLabyrinth.getBlock(_i , _j + 1).fiel === '') {
+				blockLabyrinth.getBlock(_i , _j + 1).fiel = 'fiel_l'
+				new_array.push(blockLabyrinth.getBlock(_i , _j + 1))
+				blockLabyrinth.getBlock(_i , _j + 1).clases();
+			}
+  		}
+
+  		blockLabyrinth.fiel_array = new_array;
+  		if (blockLabyrinth.fiel_array.length) {
+  			blockLabyrinth.ticker = setTimeout(blockLabyrinth.ticFunction, blockLabyrinth.animation);
+  		}
+	},
+}
+
+
+// Запуск
+blockLabyrinth.generate();
+
+
+
+// Доп ф-ции
+function getRandomArbitary(min, max)
+{
+  return Math.random() * (max - min) + min;
+}
+function shuffle(array) {
+  let currentIndex = array.length, temporaryValue, randomIndex;
+
+  // While there remain elements to shuffle...
+  while (0 !== currentIndex) {
+
+    // Pick a remaining element...
+    randomIndex = Math.floor(Math.random() * currentIndex);
+    currentIndex -= 1;
+
+    // And swap it with the current element.
+    temporaryValue = array[currentIndex];
+    array[currentIndex] = array[randomIndex];
+    array[randomIndex] = temporaryValue;
+  }
+
+  return array;
+}
+
+
+</script>
+
+</body>
+</html>
